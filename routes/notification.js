@@ -1,115 +1,62 @@
-const { getMessaging } = require("firebase-admin/messaging");
+const express = require("express");
+const router = express.Router();
 
-// Send to Single Token
-async function sendToToken(token, title, body, data = {}) {
-  try {
-    const message = {
-      token,
-      notification: {
-        title,
-        body,
-      },
-      data,
-      android: {
-        priority: "high",
-      },
-      apns: {
-        payload: {
-          aps: {
-            sound: "default",
-          },
-        },
-      },
-    };
-
-    const response = await getMessaging().send(message);
-
-    return {
-      success: true,
-      messageId: response,
-    };
-  } catch (error) {
-    console.error(error);
-
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-}
-
-// Send to Multiple Tokens
-async function sendToMultipleTokens(tokens, title, body, data = {}) {
-  try {
-    const message = {
-      tokens,
-      notification: {
-        title,
-        body,
-      },
-      data,
-      android: {
-        priority: "high",
-      },
-    };
-
-    const response = await getMessaging().sendEachForMulticast(message);
-
-    return {
-      success: true,
-      successCount: response.successCount,
-      failureCount: response.failureCount,
-    };
-  } catch (error) {
-    console.error(error);
-
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-}
-
-// Send to Topic
-async function sendToTopic(topic, title, body, data = {}) {
-  try {
-    const message = {
-      topic,
-      notification: {
-        title,
-        body,
-      },
-      data,
-      android: {
-        priority: "high",
-      },
-      apns: {
-        payload: {
-          aps: {
-            sound: "default",
-          },
-        },
-      },
-    };
-
-    const response = await getMessaging().send(message);
-
-    return {
-      success: true,
-      messageId: response,
-    };
-  } catch (error) {
-    console.error(error);
-
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-}
-
-module.exports = {
+const {
   sendToToken,
   sendToMultipleTokens,
   sendToTopic,
-};
+} = require("../services/notificationService");
+
+router.post("/send", async (req, res) => {
+  try {
+    const { token, topic, title, body, data } = req.body;
+
+    let result;
+
+    if (topic) {
+      result = await sendToTopic(topic, title, body, data || {});
+    } else if (token) {
+      result = await sendToToken(token, title, body, data || {});
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: "Topic or Token is required",
+      });
+    }
+
+    res.json(result);
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+router.post("/send-multiple", async (req, res) => {
+  try {
+    const { tokens, title, body, data } = req.body;
+
+    const result = await sendToMultipleTokens(
+      tokens,
+      title,
+      body,
+      data || {}
+    );
+
+    res.json(result);
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+module.exports = router;
